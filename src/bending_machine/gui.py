@@ -47,6 +47,7 @@ from bending_machine.models import OVERLOAD_LIMIT_G, FitSubset, Mode
 BG, SURFACE, BORDER = "#14171c", "#1d2128", "#2f3540"
 TEXT, MUTED = "#e6e9ee", "#8b94a3"
 BLUE, GREEN, AMBER, RED = "#4c9aff", "#3ecf8e", "#f5a524", "#e5484d"
+CHART_SECONDS = 20.0  # the time chart shows this much recent history
 MODE_TEXT = {  # mode -> (text, colour) of the state pill
     Mode.DISCONNECTED: ("Not connected", MUTED),
     Mode.IDLE: ("Idle", GREEN),
@@ -113,7 +114,8 @@ class MainWindow(QMainWindow):
         self._shown: Any = None  # the settings and images objects last drawn
         self._drawn: Any = None
         self._last_mode: Mode | None = None
-        self._chart: deque[tuple[float, float, float]] = deque(maxlen=15 * 300)  # 5 minutes
+        self._chart: deque[tuple[float, float, float]] = deque()  # (time, force, dK), recent
+        self._chart_start = 0.0  # frame time of the first point since the chart was cleared
         self._curve: list[tuple[float, float]] = []  # (dK, force) of the running or last test
         self._found: tuple[list[str], list[str]] | None = None  # result of a discovery
         self._discovering = False
@@ -259,6 +261,7 @@ class MainWindow(QMainWindow):
         item.getAxis("right").linkToView(dk_view)
         dk_view.setXLink(item)
         item.vb.sigResized.connect(lambda: dk_view.setGeometry(item.vb.sceneBoundingRect()))
+        self._history = item
         self._force_curve = item.plot(pen=pg.mkPen(BLUE, width=2))
         self._dk_curve = pg.PlotCurveItem(pen=pg.mkPen(AMBER, width=2), connect="finite")
         dk_view.addItem(self._dk_curve)
@@ -619,8 +622,14 @@ class MainWindow(QMainWindow):
         if started and mode is Mode.TESTING:
             self._curve.clear()
         if m is not None and (not self._chart or m.frame_time != self._chart[-1][0]):
+            if not self._chart:
+                self._chart_start = m.frame_time
             self._chart.append((m.frame_time, m.force, nan if m.dk is None else m.dk))
-            times = [t - self._chart[0][0] for t, _, _ in self._chart]
+            while m.frame_time - self._chart[0][0] > CHART_SECONDS:
+                self._chart.popleft()
+            times = [t - self._chart_start for t, _, _ in self._chart]
+            end = max(times[-1], CHART_SECONDS)
+            self._history.setXRange(end - CHART_SECONDS, end, padding=0)
             self._force_curve.setData(times, [force for _, force, _ in self._chart])
             self._dk_curve.setData(times, [dk for _, _, dk in self._chart])
             if mode is Mode.TESTING and m.usable and m.dk is not None:

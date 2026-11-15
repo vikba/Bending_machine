@@ -9,7 +9,7 @@ import pytest
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from pytestqt.qtbot import QtBot
 
-from bending_machine import devices
+from bending_machine import devices, gui
 from bending_machine.gui import Button, MainWindow
 from bending_machine.machine import Machine
 from bending_machine.main import main
@@ -123,6 +123,18 @@ def test_run_shows_phases_and_saves(
     rows = (tmp_path / "result.lvm").read_bytes().split(b"\r\n")
     assert f"Samples: {len(rows) - 1}" == window.samples_label.text()
     assert len(window._chart) > 10 and window.test_button.isEnabled()
+
+
+def test_time_chart_scrolls_over_recent_history(
+    qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(gui, "CHART_SECONDS", 1.0)
+    connect(qtbot, window)
+    qtbot.waitUntil(lambda: window._chart[-1][0] - window._chart_start > 2, timeout=5000)
+    assert window._chart[-1][0] - window._chart[0][0] <= 1.0
+    left, right = window._history.viewRange()[0]
+    assert right == pytest.approx(window._chart[-1][0] - window._chart_start)
+    assert right - left == pytest.approx(1.0)
 
 
 def test_not_tared_offers_to_start_anyway(

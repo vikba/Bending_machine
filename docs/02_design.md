@@ -369,7 +369,8 @@ the start; `Step` has no settle wait; after a limit is recorded wait 0.4 s; befo
   invalid value restores the widget and shows the reason in the status line.
 - Controls that start motion are enabled only in `IDLE`; settings are editable whenever
   nothing is moving; STOP is enabled while something runs.
-- Chart: the last 5 minutes of force and dK; cleared when preconditioning or a test starts.
+- Chart: the last 20 s of force and dK, scrolling, with time in seconds since the chart was
+  cleared; cleared when preconditioning or a test starts.
 - Discovery runs on a short background thread started by Refresh (and once at start-up);
   the timer fills the two lists when it finishes. Refresh and Connect are disabled meanwhile.
 - Dialogs are plain `QMessageBox` / `QFileDialog` calls:

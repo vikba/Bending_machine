@@ -186,13 +186,17 @@ negative dK, and its `k_limit` is negated on load.
 
 **Results `name.csv`** (IR-010): ASCII, comma-separated, CR LF after every line. A header
 row, then one line per sample: time since the test started, stage position, dK, tared
-force, then the marker centres. Numbers are written with `"%.9g"`, decimal point `.`.
+force, then the marker centres. Fixed decimals, never exponent form, decimal point `.`:
+time 3 (1 ms), stage 4 (0.1 µm), dK 6 (1e-6 1/mm, against noise of about 5e-5), force 4
+(0.1 mg), markers 4 (1e-4 px against 0.05 px jitter; replaying them reproduces dK within
+1e-7, where 3 decimals would give up to 4e-7). A value that rounds to zero is written
+without a minus sign.
 dK is positive while loaded, the opposite of the legacy `.lvm` files (§3), which were the
 same numbers without a header, time or position, TAB-separated as `X1…XN, Y1…YN, dK, force`.
 
 ```
 t_s,stage_mm,dk_per_mm,force_g,x1_px,…,x6_px,y1_px,…,y6_px
-0.412,9.9523,0.000105,6.283017e-05,219.797256,…,612.509033
+0.412,9.9523,0.000105,0.0001,219.7973,…,612.5090
 ```
 
 **Metadata `name.meta.json`** (IR-011): UTF-8, two-space indent, keys in this order:

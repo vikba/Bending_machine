@@ -75,8 +75,10 @@ def write_results(record: TestRecord, results_path: Path, overwrite: bool) -> No
     header += [f"x{i}_px" for i in markers] + [f"y{i}_px" for i in markers]
     rows = ",".join(header) + "\r\n"
     for s in record.samples:
-        values = (s.t, s.stage_mm, s.dk, s.force, *s.xs, *s.ys)
-        rows += ",".join(f"{v:.9g}" for v in values) + "\r\n"
+        # Decimals well below each quantity's noise; 4 for markers keeps replayed dK within 1e-7.
+        values = [(s.t, 3), (s.stage_mm, 4), (s.dk, 6), (s.force, 4)]
+        values += [(v, 4) for v in (*s.xs, *s.ys)]
+        rows += ",".join(f"{round(v, d) + 0.0:.{d}f}" for v, d in values) + "\r\n"  # no -0.0
     metadata = {
         "schema": 2,
         "results_file": results_path.name,

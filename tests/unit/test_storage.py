@@ -35,8 +35,8 @@ def test_write_results_bytes_and_metadata(tmp_path: Path) -> None:
     storage.write_results(record(), path, overwrite=False)
     assert path.read_bytes() == (
         b"t_s,stage_mm,dk_per_mm,force_g,x1_px,x2_px,y1_px,y2_px\r\n"
-        b"0,10,0.000105,6.283017e-05,219.797256,309.985138,634.939148,629.35498\r\n"
-        b"1,9,-0.000491,-0.006024,219.818619,310.029297,612.901733,607.659851\r\n"
+        b"0.000,10.0000,0.000105,0.0001,219.7973,309.9851,634.9391,629.3550\r\n"
+        b"1.000,9.0000,-0.000491,-0.0060,219.8186,310.0293,612.9017,607.6599\r\n"
     )
     meta_text = (tmp_path / "Test 1.meta.json").read_text(encoding="utf-8")
     assert "\r" not in meta_text

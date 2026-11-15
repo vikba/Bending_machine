@@ -105,7 +105,7 @@ def test_run_shows_phases_and_saves(
     qtbot: QtBot, window: MainWindow, dialogs: Dialogs, tmp_path: Path
 ) -> None:
     dialogs.answers["Test finished"] = Button.Save
-    dialogs.file = str(tmp_path / "result")  # the .lvm suffix is added
+    dialogs.file = str(tmp_path / "result")  # the .csv suffix is added
     start_test(qtbot, window)
     assert not window.test_button.isEnabled() and not window._spins["k_limit"].isEnabled()
     assert window.stop_button.isEnabled()
@@ -119,9 +119,9 @@ def test_run_shows_phases_and_saves(
     qtbot.waitUntil(lambda: window.status_line.text().startswith("Saved"))
     assert {"Test running · loading", "Test running · unloading"} <= seen
     assert dialogs.asked == ["Test finished"]
-    assert window.status_line.text() == f"Saved {tmp_path / 'result.lvm'}"
-    rows = (tmp_path / "result.lvm").read_bytes().split(b"\r\n")
-    assert f"Samples: {len(rows) - 1}" == window.samples_label.text()
+    assert window.status_line.text() == f"Saved {tmp_path / 'result.csv'}"
+    rows = (tmp_path / "result.csv").read_bytes().split(b"\r\n")
+    assert f"Samples: {len(rows) - 2}" == window.samples_label.text()
     assert len(window._chart) > 10 and window.test_button.isEnabled()
 
 
@@ -230,7 +230,7 @@ def test_close_with_failed_save_keeps_the_result(
     assert window.result_button.isEnabled()
 
     dialogs.answers["Test finished"] = Button.Save
-    dialogs.file = str(tmp_path / "missing" / "result.lvm")
+    dialogs.file = str(tmp_path / "missing" / "result.csv")
     window.close()
     qtbot.waitUntil(lambda: "Not saved" in dialogs.asked)
     dialogs.answers["Test finished"] = Button.Cancel  # the retry offer: decide later
@@ -238,10 +238,10 @@ def test_close_with_failed_save_keeps_the_result(
     assert window.isVisible() and mode(window) is Mode.RESULT_PENDING
 
     dialogs.answers["Test finished"] = Button.Save
-    dialogs.file = str(tmp_path / "result.lvm")
+    dialogs.file = str(tmp_path / "result.csv")
     window.close()
     qtbot.waitUntil(lambda: not window.isVisible(), timeout=5000)
-    assert (tmp_path / "result.lvm").exists()
+    assert (tmp_path / "result.csv").exists()
 
 
 def test_version(capsys: pytest.CaptureFixture[str]) -> None:

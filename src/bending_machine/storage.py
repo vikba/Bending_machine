@@ -54,21 +54,13 @@ def save_settings(folder: Path, settings: Settings) -> None:
         raise SaveError(str(path), str(error)) from error
 
 
-def format_value(value: float) -> str:
-    """One number in the legacy .lvm format (six decimals; exponent form below 1e-4)."""
-    if value == 0 or abs(value) >= 1e-4:
-        return f"{value:.6f}"
-    mantissa, exponent = f"{value:.6E}".split("E")
-    return f"{mantissa}E{int(exponent)}"  # int() drops the sign padding: E-05 -> E-5
-
-
 def results_exist(results_path: Path) -> bool:
-    """True if the .lvm file or its .meta.json already exists."""
+    """True if the .csv file or its .meta.json already exists."""
     return results_path.exists() or results_path.with_suffix(".meta.json").exists()
 
 
 def write_results(record: TestRecord, results_path: Path, overwrite: bool) -> None:
-    """Write name.lvm and name.meta.json through temporary files.
+    """Write name.csv and name.meta.json through temporary files.
 
     Raises SaveError if a target exists and overwrite is False, the record has no
     samples, or writing fails. The caller keeps the record until this succeeds.
@@ -78,12 +70,15 @@ def write_results(record: TestRecord, results_path: Path, overwrite: bool) -> No
     if not overwrite and results_exist(results_path):
         raise SaveError(str(results_path), "file exists")
 
-    rows = "".join(
-        "\t" + "\t".join(format_value(v) for v in (*s.xs, *s.ys, s.dk, s.force)) + "\r\n"
-        for s in record.samples
-    )
+    markers = range(1, len(record.samples[0].xs) + 1)
+    header = ["t_s", "stage_mm", "dk_per_mm", "force_g"]
+    header += [f"x{i}_px" for i in markers] + [f"y{i}_px" for i in markers]
+    rows = ",".join(header) + "\r\n"
+    for s in record.samples:
+        values = (s.t, s.stage_mm, s.dk, s.force, *s.xs, *s.ys)
+        rows += ",".join(f"{v:.9g}" for v in values) + "\r\n"
     metadata = {
-        "schema": 1,
+        "schema": 2,
         "results_file": results_path.name,
         **TestMetadata.from_record(record, __version__).model_dump(),
     }

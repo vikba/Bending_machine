@@ -460,15 +460,15 @@ class MainWindow(QMainWindow):
             Button.Save | Button.Discard | Button.Cancel,
         )
         if choice == Button.Save:
-            name = self._folder / f"Test_{datetime.now():%Y%m%d_%H%M%S}.lvm"
+            name = self._folder / f"Test_{datetime.now():%Y%m%d_%H%M%S}.csv"
             # The file dialog itself asks before replacing an existing file.
             chosen, _ = QFileDialog.getSaveFileName(
-                self, "Save result", str(name), "Results (*.lvm)"
+                self, "Save result", str(name), "Results (*.csv)"
             )
             if chosen:
                 self._folder = Path(chosen).parent
                 self._resolving = True
-                return self._machine.save_result(Path(chosen).with_suffix(".lvm"), True)
+                return self._machine.save_result(Path(chosen).with_suffix(".csv"), True)
         elif choice == Button.Discard:
             sure = QMessageBox.question(self, "Discard result", "Discard the result for good?")
             if sure == Button.Yes:

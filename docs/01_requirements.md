@@ -9,7 +9,7 @@ The brief's four context fields (users, must keep, wanted changes, target) were 
 | Field | Working assumption | Basis |
 |---|---|---|
 | Users | Laboratory researchers running bending tests on thin polymer samples at a single bench PC, one operator at a time, without programming knowledge | Test folders named by operator, material and thickness under `tests/` |
-| Must keep | The existing rig: Zaber A-Series stage, FUTEK USB225 load cell, the current camera. The results-file column layout, so existing analysis of `.lvm` files keeps working. The operator workflow: jog, image setup, tare, precondition, run test, save | inv. §5, §6.2, §4.2 |
+| Must keep | The existing rig: Zaber A-Series stage, FUTEK USB225 load cell, the current camera. The measured quantities of the results file (marker centres, dK, force); its layout changed on 2026-11-15, see D8. The operator workflow: jog, image setup, tare, precondition, run test, save | inv. §5, §6.2, §4.2 |
 | Wanted changes | Fix the defects the inventory found; make hard-coded values visible; record enough metadata to reproduce a test; no other new features | inv. Open questions 2, 3, 6, 7, 8 |
 | Target | Windows 10/11 64-bit on the existing lab PC. Python version not constrained by this document | FUTEK .NET Framework 4.8 assembly; camera currently reached through a Windows NI driver (inv. §5.1, §5.3) |
 
@@ -128,7 +128,7 @@ Decision: **KEEP** = same observable behaviour; **IMPROVE** = same purpose, chan
 
 | ID | Statement | Source | Decision and reason | Priority | Acceptance criterion |
 |---|---|---|---|---|---|
-| FR-090 | On save, the operator chooses the file name and folder; the results are written in the format of IR-010. | MAIN | KEEP | must | A saved file loads in the existing analysis without changes. |
+| FR-090 | On save, the operator chooses the file name and folder; the results are written in the format of IR-010. | MAIN | KEEP | must | A saved file opens in a spreadsheet or pandas with named columns. |
 | FR-091 | With each results file, the system saves the test metadata in the format of IR-011, including the true resolution value. | MAIN | IMPROVE: legacy saves resolution as 0 and overwrites one metadata file per folder | must | Two tests saved in one folder leave two results files and metadata for both; resolution 0.0111 is saved as 0.0111. |
 | FR-092 | The system never silently overwrites an existing results file. | MAIN (Express VI behaviour unknown) | IMPROVE | must | Choosing an existing name prompts before replacing. |
 | FR-093 | Unsaved test data survives until the operator saves or discards it, including if saving fails. | MAIN | IMPROVE | should | Saving to a read-only folder shows an error and offers save again; data is intact. |
@@ -180,7 +180,7 @@ Decision: **KEEP** = same observable behaviour; **IMPROVE** = same purpose, chan
 | IR-003 | FUTEK USB225 load cell | Use the first detected device; read channel 0 as a floating-point value in the device's configured units; disconnect on exit. Works with the vendor library FUTEK.Devices 1.11.5.0 shipped with the legacy source. | inv. §5.1 | CONFIRMED calls; units grams, read rate 50 Hz confirmed |
 | IR-004 | Camera | Acquire continuous 8-bit greyscale frames from the existing camera, selected by name or identifier, always delivering the most recent frame, at ≥ 15 frames/s. | inv. §5.3; `camera_settings.xml` (GigE, 17.78 fps) | Allied Vision GigE camera, Vimba X / vmbpy (confirmed 2026-11-14) |
 | IR-005 | Camera configuration | Exposure, gain and frame rate are those already stored for the camera; the system does not need to edit them. | `camera_settings.xml` not loaded by legacy | UNVERIFIED how settings reach the camera |
-| IR-010 | Results file | Plain ASCII text, CRLF line endings, no header. One line per sample. Each line begins with a tab, followed by tab-separated values: X1…XN, Y1…YN, K, F. Decimal point `.`. Six decimal places, exponent notation permitted for small magnitudes. X, Y in pixels of the processed image, left to right; K is dK in 1/mm; F is tared force. File extension `.lvm`. | inv. §6.2 | CONFIRMED from samples |
+| IR-010 | Results file | Comma-separated ASCII text, CRLF line endings, file extension `.csv`. A header row naming each column with its unit, then one line per sample: time since test start (s), stage position (mm), dK (1/mm, positive while loaded), tared force (g), X1…XN, Y1…YN (pixels of the processed image, left to right). Decimal point `.`, nine significant digits. | D8; legacy layout in inv. §6.2 | CHANGED 2026-11-15 from the legacy headerless `.lvm` layout |
 | IR-011 | Metadata file | Plain text saved beside each results file and tied to it by name. Contains at least: start date, start time, N, resolution (mm/pixel, full precision), curvature limit, step size, settle time, which markers were fitted, K and F tare references, end reason, software version. | inv. §6.3 extended | Changed from legacy; see decision D7 |
 | IR-012 | Legacy metadata | A file named `Config_File.xls` with the four legacy lines (date, time, N, resolution) is also written if existing tooling reads it. | inv. §6.3 | DROPPED (2026-11-14): nothing needs it; decision D7 |
 | IR-020 | Network | None. The system needs no network connection, apart from the camera link if the camera is Ethernet-attached. | inv. §5.4 | CONFIRMED absence |
@@ -225,7 +225,7 @@ Proposed without guidance; each can be reversed without affecting the rest.
 | D5 | Force overload stops motion and keeps the application and data alive | Legacy behaviour: exit | FR-101 |
 | D6 | No automatic stage move after an overload, including no return to start | Back off automatically by a fixed distance | FR-065, FR-076, FR-101 |
 | D7 | One metadata file per results file with extended content; legacy `Config_File.xls` not written (RESOLVED 2026-11-14) | Keep writing exactly the legacy file, with resolution fixed | FR-091, IR-011, IR-012 |
-| D8 | Results stay in the legacy `.lvm` layout with no header | Add a header or a second, self-describing file | IR-010 |
+| D8 | Results are a CSV file with a header row, time and stage position (CHANGED 2026-11-15: the dK sign change already made new files differ from legacy ones) | Stay in the legacy `.lvm` layout with no header | IR-010 |
 | D9 | Stage units fixed to millimetres; other units dropped | Keep the unit selector | FR-011, FR-901 |
 | D10 | Integer `Threshold` setting dropped | Keep it if it is found to affect detection | FR-902 |
 | D11 | Settle time, dwell time and overload limit become settings with the legacy values as defaults | Keep them fixed | FR-063, FR-072, FR-102 |

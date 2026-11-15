@@ -143,17 +143,18 @@ def test_full_run_then_failed_save_then_save(make: Callable[..., Bench], tmp_pat
     assert all(s.force > 0 for s in record.samples[1:-1])  # the sample pushes the probe
 
     b.machine.start_test()  # nothing new can start while a result is pending
-    b.machine.save_result(tmp_path / "missing" / "t.lvm", False)
+    b.machine.save_result(tmp_path / "missing" / "t.csv", False)
     b.wait(lambda s: b.said("save_failed"))
     assert b.machine.status().mode is Mode.RESULT_PENDING
     assert "a result is waiting" in b.said("rejected")[-1]
 
-    b.machine.save_result(tmp_path / "t.lvm", False)
+    b.machine.save_result(tmp_path / "t.csv", False)
     b.wait(mode_is(Mode.IDLE))
-    assert b.said("saved") == [str(tmp_path / "t.lvm")]
-    rows = (tmp_path / "t.lvm").read_bytes().split(b"\r\n")
-    assert rows.pop() == b"" and len(rows) == status.samples
-    assert all(row.startswith(b"\t") and row.count(b"\t") == 14 for row in rows)
+    assert b.said("saved") == [str(tmp_path / "t.csv")]
+    rows = (tmp_path / "t.csv").read_bytes().split(b"\r\n")
+    assert rows.pop() == b"" and len(rows) == status.samples + 1  # a header row
+    assert rows[0].startswith(b"t_s,stage_mm,dk_per_mm,force_g,x1_px")
+    assert all(row.count(b",") == 15 for row in rows)
     meta = json.loads((tmp_path / "t.meta.json").read_text())
     assert (meta["end_reason"], meta["sample_count"]) == ("completed", status.samples)
 

@@ -10,8 +10,6 @@ import pytest
 from bending_machine import models, storage
 from bending_machine.models import EndReason, SaveError, Settings
 
-LEGACY = sorted((Path(__file__).parents[1] / "Antonino").rglob("*.lvm"))
-
 
 def record(samples: int = 2) -> models.TestRecord:
     rows = [
@@ -32,29 +30,13 @@ def record(samples: int = 2) -> models.TestRecord:
     )
 
 
-@pytest.mark.parametrize(
-    ("value", "text"),
-    [
-        (0.0, "0.000000"),
-        (219.797256, "219.797256"),
-        (-0.000491, "-0.000491"),
-        (1e-4, "0.000100"),
-        (9.9999e-5, "9.999900E-5"),
-        (6.283017e-5, "6.283017E-5"),
-        (-3.1e-6, "-3.100000E-6"),
-        (1.413679e-6, "1.413679E-6"),
-    ],
-)
-def test_format_value(value: float, text: str) -> None:
-    assert storage.format_value(value) == text
-
-
 def test_write_results_bytes_and_metadata(tmp_path: Path) -> None:
-    path = tmp_path / "Test 1.lvm"
+    path = tmp_path / "Test 1.csv"
     storage.write_results(record(), path, overwrite=False)
     assert path.read_bytes() == (
-        b"\t219.797256\t309.985138\t634.939148\t629.354980\t0.000105\t6.283017E-5\r\n"
-        b"\t219.818619\t310.029297\t612.901733\t607.659851\t-0.000491\t-0.006024\r\n"
+        b"t_s,stage_mm,dk_per_mm,force_g,x1_px,x2_px,y1_px,y2_px\r\n"
+        b"0,10,0.000105,6.283017e-05,219.797256,309.985138,634.939148,629.35498\r\n"
+        b"1,9,-0.000491,-0.006024,219.818619,310.029297,612.901733,607.659851\r\n"
     )
     meta_text = (tmp_path / "Test 1.meta.json").read_text(encoding="utf-8")
     assert "\r" not in meta_text
@@ -65,8 +47,8 @@ def test_write_results_bytes_and_metadata(tmp_path: Path) -> None:
         "f_ref", "tare_overridden", "end_reason", "sample_count", "start_position_mm",
         "software_version",
     ]  # fmt: skip
-    assert meta["schema"] == 1
-    assert meta["results_file"] == "Test 1.lvm"
+    assert meta["schema"] == 2
+    assert meta["results_file"] == "Test 1.csv"
     assert (meta["start_date"], meta["start_time"]) == ("2026-07-16", "16:28:05")
     assert meta["resolution_mm_per_px"] == 0.0111
     assert (meta["k_ref"], meta["f_ref"]) == (-0.0031, None)
@@ -74,32 +56,23 @@ def test_write_results_bytes_and_metadata(tmp_path: Path) -> None:
     assert list(tmp_path.glob("*.tmp")) == []
 
 
-@pytest.mark.skipif(not LEGACY, reason="legacy data is not in the repository")
-@pytest.mark.parametrize("legacy", LEGACY[:5], ids=lambda p: p.name)
-def test_legacy_rows_reformat_identically(legacy: Path) -> None:
-    """Parsing a legacy file and formatting its numbers again gives the same text."""
-    for line in legacy.read_text(encoding="ascii").splitlines()[:200]:
-        fields = line.split("\t")[1:]
-        assert [storage.format_value(float(f)) for f in fields] == fields
-
-
 def test_existing_target_needs_overwrite(tmp_path: Path) -> None:
-    path = tmp_path / "a.lvm"
+    path = tmp_path / "a.csv"
     storage.write_results(record(), path, overwrite=False)
     assert storage.results_exist(path)
     with pytest.raises(SaveError, match="file exists"):
         storage.write_results(record(1), path, overwrite=False)
-    assert len(path.read_bytes().splitlines()) == 2  # untouched
+    assert len(path.read_bytes().splitlines()) == 3  # untouched
     path.unlink()  # the metadata file alone also counts as existing
     with pytest.raises(SaveError):
         storage.write_results(record(), path, overwrite=False)
     storage.write_results(record(1), path, overwrite=True)
-    assert len(path.read_bytes().splitlines()) == 1
+    assert len(path.read_bytes().splitlines()) == 2
 
 
 def test_empty_record_refused(tmp_path: Path) -> None:
     with pytest.raises(SaveError, match="no samples"):
-        storage.write_results(record(0), tmp_path / "a.lvm", overwrite=False)
+        storage.write_results(record(0), tmp_path / "a.csv", overwrite=False)
     assert list(tmp_path.iterdir()) == []
 
 
@@ -107,7 +80,7 @@ def test_unwritable_folder_leaves_nothing(tmp_path: Path) -> None:
     tmp_path.chmod(0o500)
     try:
         with pytest.raises(SaveError):
-            storage.write_results(record(), tmp_path / "a.lvm", overwrite=False)
+            storage.write_results(record(), tmp_path / "a.csv", overwrite=False)
         with pytest.raises(SaveError):
             storage.save_settings(tmp_path, Settings())
         assert list(tmp_path.iterdir()) == []

@@ -37,4 +37,4 @@ Run everything in the `bending` conda environment. Prerequisites: .NET Framework
 
 1. Small limit first (for example −0.02 1/mm), overload limit active as always.
 2. Run the test: it loads, unloads, returns to the start and offers to save.
-3. Open the `.lvm` and `.meta.json`; compare the curve with a legacy result.
+3. Open the `.csv` and `.meta.json`; compare the curve with a legacy result.

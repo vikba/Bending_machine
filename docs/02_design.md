@@ -184,18 +184,19 @@ the whole file and a logged warning. `tracking` is always loaded as off. The fil
 carries `"loading_positive": true`; a file without it was written when loading gave
 negative dK, and its `k_limit` is negated on load.
 
-**Results `name.lvm`** (legacy layout, IR-010): ASCII, CR LF after every line, no header.
-One line per sample: a TAB, then `X1…XN`, `Y1…YN`, `dK`, `force` separated by TABs.
-dK is positive while loaded, the opposite of the legacy files (§3).
-Numbers: `"%.6f"` when the value is 0 or `abs(value) >= 1e-4`; otherwise mantissa with six
-decimals, `E`, and an unpadded exponent (`6.283017E-5`).
+**Results `name.csv`** (IR-010): ASCII, comma-separated, CR LF after every line. A header
+row, then one line per sample: time since the test started, stage position, dK, tared
+force, then the marker centres. Numbers are written with `"%.9g"`, decimal point `.`.
+dK is positive while loaded, the opposite of the legacy `.lvm` files (§3), which were the
+same numbers without a header, time or position, TAB-separated as `X1…XN, Y1…YN, dK, force`.
 
 ```
-→219.797256→309.985138→…→612.509033→0.000105→6.283017E-5¶
+t_s,stage_mm,dk_per_mm,force_g,x1_px,…,x6_px,y1_px,…,y6_px
+0.412,9.9523,0.000105,6.283017e-05,219.797256,…,612.509033
 ```
 
 **Metadata `name.meta.json`** (IR-011): UTF-8, two-space indent, keys in this order:
-`schema` (1), `results_file`, then the `TestMetadata` fields in `models.py`
+`schema` (2: CSV results, dK positive while loaded), `results_file`, then the `TestMetadata` fields in `models.py`
 (`start_date` `YYYY-MM-DD`, `start_time` `HH:MM:SS`, `marker_count`,
 `resolution_mm_per_px`, `k_limit`, `test_step_mm`, `settle_s`, `fit_subset`, `k_ref`,
 `f_ref`, `tare_overridden`, `end_reason`, `sample_count`, `start_position_mm`,
@@ -384,7 +385,7 @@ the start; `Step` has no settle wait; after a limit is recorded wait 0.4 s; befo
   - connection failure and faults name the device;
   - `not_tared` offers "Start anyway" (override) for a test; preconditioning only informs;
   - when a test ends with samples: "Save the result?" with Save, Discard, Cancel → file
-    chooser (default `Test_YYYYMMDD_HHMMSS.lvm`). The file chooser itself asks before
+    chooser (default `Test_YYYYMMDD_HHMMSS.csv`). The file chooser itself asks before
     replacing an existing file, so the save is sent with `overwrite=True`. A failed save
     shows the reason and offers the same question again; discarding asks for confirmation;
     after Cancel the "Save or discard result…" button brings the question back;
@@ -417,7 +418,7 @@ tests that must exist:
 | Test | Checks |
 |---|---|
 | Full test run | loading then unloading, ends `COMPLETED`, stage back at start, result pending, every step is `test_step_mm` |
-| Save | `.lvm` matches the format byte for byte; metadata parses; pending cleared |
+| Save | `.csv` matches the format byte for byte; metadata parses; pending cleared |
 | Failed save | record kept; retry to another path works |
 | Stop during a test | ends `STOPPED` within a step, returns to start, samples kept |
 | Stop during a long move | stage halts at once |

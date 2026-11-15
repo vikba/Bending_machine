@@ -20,7 +20,7 @@ FAST = {
     "tracking": True,
     "test_step_mm": 0.05,
     "settle_s": 0.05,
-    "k_limit": -0.012,
+    "k_limit": 0.012,
     "stage_port": "SIM",
     "camera_id": "SIM-CAM",
 }

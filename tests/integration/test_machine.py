@@ -20,12 +20,12 @@ FAST = {
     "test_step_mm": 0.05,
     "jog_step_mm": 0.05,
     "settle_s": 0.05,
-    "k_limit": -0.012,
+    "k_limit": 0.012,
     "pc_amplitude": 0.006,
     "pc_cycles": 3,
     "pc_dwell_s": 0.05,
 }
-LONG = {"k_limit": -0.024}  # 6 steps to the limit: time to interfere mid-test
+LONG = {"k_limit": 0.024}  # 6 steps to the limit: time to interfere mid-test
 
 
 class FakeLoadCell(LoadCell):
@@ -133,7 +133,8 @@ def test_full_run_then_failed_save_then_save(make: Callable[..., Bench], tmp_pat
     record = b.machine._record  # the pending result, as it will be saved
     assert record is not None and len(record.samples) == status.samples
     dks = [s.dk for s in record.samples]
-    assert abs(dks[0]) < 0.001 and min(dks) <= -0.012 and dks[-1] >= 0
+    assert abs(dks[0]) < 0.001 and max(dks) >= 0.012 and dks[-1] <= 0
+    assert record.samples[dks.index(max(dks))].force > 0  # same sign as dK when loaded
     steps = [b.stage_mm - a.stage_mm for a, b in pairwise(record.samples)]
     assert all(abs(step) == pytest.approx(0.05, abs=1e-9) for step in steps)
     assert min(s.stage_mm for s in record.samples) == pytest.approx(9.85, abs=1e-9)  # up = loading
@@ -263,7 +264,7 @@ def test_preconditioning_three_cycles(make: Callable[..., Bench]) -> None:
     assert b.phases[-4:] == ["seek_first", "seek_second", "cycling", "completed"]
     assert status.cycles_done == 3
     assert b.said("info")[-1] == "Preconditioning ended: completed."
-    # Up to the first limit (dK <= -0.006 at 9.9), down to the second (10.1), then
+    # Up to the first limit (dK >= 0.006 at 9.9), down to the second (10.1), then
     # straight between exactly those two positions, and back to the start.
     expected = [10.0, 9.95, 9.9, 9.95, 10.0, 10.05, 10.1, 9.9, 10.1, 9.9, 10.1, 10.0]
     assert b.positions == pytest.approx(expected, abs=1e-9)

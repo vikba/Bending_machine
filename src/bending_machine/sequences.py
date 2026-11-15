@@ -50,14 +50,14 @@ class TestRunSequence:
     def __init__(self, k_limit: float, step_mm: float, loading_stage_sign: int) -> None:
         """k_limit: target dK in 1/mm, non-zero. step_mm > 0.
 
-        loading_stage_sign: -1 or +1, sign of delta_mm that makes dK more negative.
+        loading_stage_sign: -1 or +1, sign of delta_mm that makes dK more positive.
         Raises ValueError on invalid arguments.
         """
         if k_limit == 0 or step_mm <= 0 or loading_stage_sign not in (-1, 1):
             raise ValueError("k_limit must be non-zero, step_mm > 0 and the sign -1 or +1")
         self._k_limit = k_limit
         self._sign = 1 if k_limit > 0 else -1  # side of zero on which the limit lies
-        self._load_mm = -self._sign * loading_stage_sign * step_mm
+        self._load_mm = self._sign * loading_stage_sign * step_mm
         self._loading = True
         self._paused = False
         self._finished = False
@@ -113,7 +113,7 @@ class PreconditionSequence:
             raise ValueError("amplitude and step_mm must be > 0, cycles >= 1, the sign -1 or +1")
         self._amplitude = amplitude
         self._cycles = cycles
-        self._neg_mm = loading_stage_sign * step_mm  # step that makes dK more negative
+        self._pos_mm = loading_stage_sign * step_mm  # step that makes dK more positive
         self._phase = PrecondPhase.SEEK_FIRST_LIMIT
         self._cycles_done = 0
         self._limit_a: float | None = None
@@ -133,12 +133,12 @@ class PreconditionSequence:
 
     @property
     def limit_a_mm(self) -> float | None:
-        """Stage position at dK <= -amplitude, once found."""
+        """Stage position at dK >= +amplitude, once found."""
         return self._limit_a
 
     @property
     def limit_b_mm(self) -> float | None:
-        """Stage position at dK >= +amplitude, once found."""
+        """Stage position at dK <= -amplitude, once found."""
         return self._limit_b
 
     def next(self, m: Measurement, position_mm: float) -> PrecondAction:
@@ -152,16 +152,16 @@ class PreconditionSequence:
         if self._phase is PrecondPhase.SEEK_FIRST_LIMIT:
             if dk is None or not m.usable:
                 return Hold()
-            if dk > -self._amplitude:
-                return Step(self._neg_mm)
+            if dk < self._amplitude:
+                return Step(self._pos_mm)
             self._limit_a = position_mm
             self._phase = PrecondPhase.SEEK_SECOND_LIMIT
-            return Step(-self._neg_mm)
+            return Step(-self._pos_mm)
         elif self._phase is PrecondPhase.SEEK_SECOND_LIMIT:
             if dk is None or not m.usable:
                 return Hold()
-            if dk < self._amplitude:
-                return Step(-self._neg_mm)
+            if dk > -self._amplitude:
+                return Step(-self._pos_mm)
             self._limit_b = position_mm
         elif self._last_target_a:
             assert self._limit_b is not None

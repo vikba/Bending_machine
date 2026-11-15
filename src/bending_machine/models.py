@@ -216,7 +216,7 @@ class Settings(BaseModel):
     jog_step_mm: float = Field(0.0612244898, gt=0, le=5)
     test_step_mm: float = Field(0.0477, gt=0, le=5)
     settle_s: float = Field(0.4, ge=0.05, le=10)
-    k_limit: float = Field(-0.12, ge=-5, le=5)
+    k_limit: float = Field(0.12, ge=-5, le=5)
     pc_amplitude: float = Field(0.0, ge=0, le=5)
     pc_cycles: int = Field(1, ge=1, le=1000)
     pc_dwell_s: float = Field(3.0, ge=0, le=60)
@@ -243,7 +243,8 @@ class Settings(BaseModel):
 OVERLOAD_LIMIT_G = 25.0  # limit on the absolute untared load-cell reading (FR-100, FR-102)
 FORCE_SIGN = -1  # displayed force = FORCE_SIGN * raw: positive while the sample pushes the probe
 STAGE_UP_SIGN = -1  # sign of delta_mm that moves the sample up, toward the stage's home
-LOADING_STAGE_SIGN = -1  # sign of delta_mm that makes dK more negative (up = loading)
+LOADING_STAGE_SIGN = -1  # sign of delta_mm that loads the sample: dK more positive (up)
+CURVATURE_SIGN = -1  # curvature = CURVATURE_SIGN * image fit: positive while loaded, like force
 FORCE_PERIOD_S = 0.02  # load-cell polling period
 ZABER_BAUD = 115200
 ZABER_DEVICE_ADDRESS = 1

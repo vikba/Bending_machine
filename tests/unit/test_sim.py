@@ -45,7 +45,7 @@ def test_frame_gives_six_markers_and_the_model_curvature() -> None:
     count, curvature = measure(rig)
     assert count == 6
     assert curvature == pytest.approx(-0.12, abs=3e-3)
-    assert rig.curvature() == pytest.approx(-0.12)
+    assert rig.curvature() == pytest.approx(0.12)  # the image fit has the opposite sign
 
 
 def test_hidden_marker_is_not_drawn() -> None:
@@ -92,7 +92,7 @@ def test_force_is_positive_on_display_when_loaded_and_follows_the_offset() -> No
     cell = SimLoadCell(rig)
     cell.connect()
     assert cell.read_raw() == 0.0
-    rig.set_position_mm(8.5)  # up: dK = -0.12
+    rig.set_position_mm(8.5)  # up: dK = 0.12
     assert vision.to_display(cell.read_raw(), FORCE_SIGN) == pytest.approx(0.42)
     rig.set_force_offset(-30.0)
     assert cell.read_raw() == pytest.approx(-30.42)

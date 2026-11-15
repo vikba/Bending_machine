@@ -30,8 +30,8 @@ Run everything in the `bending` conda environment. Prerequisites: .NET Framework
 ## 4. Signs with a sample (design §3)
 
 1. Mount a sample, set thresholds and ROI, start tracking: all markers found.
-2. Tare curvature and force. Jog **Up** a few steps: dK must go **negative** and force
-   **positive**. If dK goes positive, `LOADING_STAGE_SIGN` is wrong.
+2. Tare curvature and force. Jog **Up** a few steps: dK and force must both go
+   **positive**. If dK goes negative, `CURVATURE_SIGN` is wrong.
 
 ## 5. Full test
 

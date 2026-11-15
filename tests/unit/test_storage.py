@@ -127,6 +127,11 @@ def test_settings_round_trip(tmp_path: Path) -> None:
     assert list(folder.glob("*.tmp")) == []
 
 
+def test_limit_from_before_the_sign_change_is_negated(tmp_path: Path) -> None:
+    (tmp_path / "settings.json").write_text('{"k_limit": -0.05}')
+    assert storage.load_settings(tmp_path).k_limit == 0.05
+
+
 @pytest.mark.parametrize("content", ["not json", '{"marker_count": 1}', '{"k_limit": 0}'])
 def test_bad_settings_file_gives_defaults(
     tmp_path: Path, content: str, caplog: pytest.LogCaptureFixture

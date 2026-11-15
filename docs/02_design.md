@@ -56,10 +56,13 @@ the overload check keep running while a stage move blocks (NFR-002, NFR-004).
 - Image coordinates: origin top-left, x right, y down, on the frame as the camera delivers
   it. There is no rotation; the camera is mounted with the sample horizontal.
 - Directions: **up** moves the sample toward the stage's home (Zaber position 0, negative
-  `delta_mm`). Moving up loads the sample: dK becomes negative (concavity down) and the
-  displayed force becomes positive (the sample pushes the probe).
+  `delta_mm`). Moving up loads the sample: dK and the displayed force both become positive
+  (the sample pushes the probe). The parabola fitted in the image is negative when loaded
+  (y points down), so curvature = `CURVATURE_SIGN ×` the fit. The legacy program did not
+  negate it: its results files have negative dK with positive force, the K column of ours
+  has the opposite sign.
 - Rig constants live in `models.py` (`OVERLOAD_LIMIT_G = 25.0`, `FORCE_SIGN`,
-  `STAGE_UP_SIGN`, `LOADING_STAGE_SIGN` all −1, `FORCE_PERIOD_S = 0.02`, Zaber baud 115200,
+  `STAGE_UP_SIGN`, `LOADING_STAGE_SIGN`, `CURVATURE_SIGN` all −1, `FORCE_PERIOD_S = 0.02`, Zaber baud 115200,
   address 1, axis 1, `FUTEK_DLL`). There is no `rig.json`; changing a constant is a code
   change, which is the "deliberate step" FR-102 asks for.
 - Operator settings are the `Settings` model in `models.py` (fields, defaults and ranges
@@ -75,6 +78,7 @@ expected gives an invalid `MarkerSet`.
 `compute_curvature(xs, ys, resolution, fit_subset)`: least-squares parabola through the
 marker centres, K = y″ / (1 + y′²)^1.5 at the evaluation point, divided by the resolution.
 Checked against the legacy results files by `tests/regression/test_curvature_legacy.py`.
+It returns the fit with the legacy sign; `Machine` multiplies it by `CURVATURE_SIGN`.
 
 Force: displayed = `FORCE_SIGN × raw − f_ref`; overload is `abs(raw) > 25` on the untared
 reading. Exactly ±25 is allowed. NaN is a load-cell read error, not an overload.
@@ -86,8 +90,8 @@ Pure state machines; `next(measurement)` returns `Step(delta_mm)`, `MoveTo(targe
 
 - **Test run**: step toward the limit until dK reaches `k_limit` (loading), then step
   back until dK returns to zero (unloading), then finish. Unusable measurement → `Hold`.
-- **Preconditioning**: step up until dK ≤ −amplitude and record position A; step down
-  until dK ≥ +amplitude and record position B (cycle 1 done); then alternate
+- **Preconditioning**: step up until dK ≥ +amplitude and record position A; step down
+  until dK ≤ −amplitude and record position B (cycle 1 done); then alternate
   `MoveTo(A)`, `MoveTo(B)`, counting a cycle at each arrival at B, until `pc_cycles`.
 
 ## 6. Devices (`devices.py`)
@@ -154,10 +158,10 @@ Refresh and Connect until it finishes. No discovery or thread joins run on the G
 `SimRig` is one locked model shared by `SimStage`, `SimLoadCell`, `SimCamera`. With stage
 position `p` and the defaults in `SimRigConfig`:
 
-- curvature `k = 0.08 × (p − 10.0)` 1/mm, so moving up 1.5 mm gives −0.12;
-- marker centres `y_i = 600 + (k × 0.0111 / 2) × (x_i − 650)²` for six fixed `x_i`, with
+- curvature `k = 0.08 × (10.0 − p)` 1/mm, so moving up 1.5 mm gives +0.12;
+- marker centres `y_i = 600 − (k × 0.0111 / 2) × (x_i − 650)²` for six fixed `x_i`, with
   0.05 px jitter; frame 1280 × 960, background 200, discs of radius 12 at grey 20;
-- raw force `= 3.5 × k + offset + noise`, so displayed force is positive when dK is negative.
+- raw force `= −3.5 × k + offset + noise`, so displayed force is positive when dK is positive.
 
 `SimStage` moves in 10 ms slices at 1 mm/s and raises `MotionInterrupted` when `stop()`
 sets its event; a target outside 0–25 mm raises `StageError("target out of travel")`.
@@ -176,10 +180,13 @@ Folder: `%APPDATA%/bending_machine`, else `~/.bending_machine`, or `--settings-f
 
 **`settings.json`**: the `Settings` fields as JSON. Saved through a temporary file and
 `os.replace`. An absent file gives default settings; an invalid one gives defaults for
-the whole file and a logged warning. `tracking` is always loaded as off.
+the whole file and a logged warning. `tracking` is always loaded as off. The file also
+carries `"loading_positive": true`; a file without it was written when loading gave
+negative dK, and its `k_limit` is negated on load.
 
 **Results `name.lvm`** (legacy layout, IR-010): ASCII, CR LF after every line, no header.
 One line per sample: a TAB, then `X1…XN`, `Y1…YN`, `dK`, `force` separated by TABs.
+dK is positive while loaded, the opposite of the legacy files (§3).
 Numbers: `"%.6f"` when the value is 0 or `abs(value) >= 1e-4`; otherwise mantissa with six
 decimals, `E`, and an unpadded exponent (`6.283017E-5`).
 
@@ -417,7 +424,7 @@ tests that must exist:
 | Marker hidden mid-test | no steps and no samples while hidden; continues after |
 | Overload mid-test | stage stopped within 250 ms, no return move, samples kept, motion refused until acknowledged |
 | Camera or stage lost mid-test | ends `FAULT`, device named, samples kept |
-| Preconditioning, 3 cycles | limits found at ∓amplitude, then alternates between exactly those positions, returns to start |
+| Preconditioning, 3 cycles | limits found at ±amplitude, then alternates between exactly those positions, returns to start |
 | Start refusals | tracking off, markers missing, not tared (and the override) |
 | Wrong-mode commands | rejected during a test without disturbing it |
 | Overload boundaries | both signs; exactly ±25 allowed; magnitudes above 25 trip; NaN is a read error |

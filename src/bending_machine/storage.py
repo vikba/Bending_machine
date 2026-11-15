@@ -26,11 +26,15 @@ def load_settings(folder: Path) -> Settings:
     """Stored settings, tracking off; defaults if the file is absent or invalid. Never raises."""
     path = folder / "settings.json"
     try:
-        stored = Settings.model_validate_json(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and not data.get("loading_positive") and "k_limit" in data:
+            # Written when loading gave negative dK: the limit keeps its meaning, not its sign.
+            data["k_limit"] = -data["k_limit"]
+        stored = Settings.model_validate(data)
         return stored.model_copy(update={"tracking": False})
     except FileNotFoundError:
         return Settings()
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, TypeError) as error:
         _log.warning("settings file %s ignored, using defaults: %s", path, error)
         return Settings()
 
@@ -41,7 +45,8 @@ def save_settings(folder: Path, settings: Settings) -> None:
     tmp = folder / "settings.json.tmp"
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        tmp.write_text(settings.model_dump_json(indent=2) + "\n", encoding="utf-8")
+        data = {**settings.model_dump(mode="json"), "loading_positive": True}
+        tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         os.replace(tmp, path)
     except OSError as error:
         with contextlib.suppress(OSError):

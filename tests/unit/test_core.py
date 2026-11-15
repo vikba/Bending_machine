@@ -46,7 +46,7 @@ def test_m1_settings_defaults() -> None:
         "jog_step_mm": 0.0612244898,
         "test_step_mm": 0.0477,
         "settle_s": 0.4,
-        "k_limit": -0.12,
+        "k_limit": 0.12,
         "pc_amplitude": 0.0,
         "pc_cycles": 1,
         "pc_dwell_s": 3.0,
@@ -86,6 +86,7 @@ def test_m3_m7_m8_valid_settings(fields: dict[str, Any]) -> None:
 def test_m10_rig_constants() -> None:
     assert models.OVERLOAD_LIMIT_G == 25.0
     assert models.FORCE_SIGN == models.STAGE_UP_SIGN == models.LOADING_STAGE_SIGN == -1
+    assert models.CURVATURE_SIGN == -1
 
 
 def marker_set(count: int, expected: int = 6) -> models.MarkerSet:
@@ -420,7 +421,7 @@ def test_f8_invalid_arguments() -> None:
 LOADING, UNLOADING, PAUSED = models.TestPhase
 
 
-def test_run(k_limit: float = -0.12, step: float = 0.05) -> sequences.TestRunSequence:
+def test_run(k_limit: float = 0.12, step: float = 0.05) -> sequences.TestRunSequence:
     return sequences.TestRunSequence(k_limit, step, -1)
 
 
@@ -430,31 +431,31 @@ test_run.__test__ = False  # type: ignore[attr-defined]  # a helper, not a test
 def test_t1_to_t5_load_then_unload() -> None:
     seq = test_run()
     assert seq.phase is LOADING
-    for dk in (0.0, -0.05, -0.10):  # T1, T2
+    for dk in (0.0, 0.05, 0.10):  # T1, T2
         assert seq.next(meas(dk)) == Step(-0.05)
         assert seq.phase is LOADING
-    assert seq.next(meas(-0.12)) == Step(0.05)  # T3
+    assert seq.next(meas(0.12)) == Step(0.05)  # T3
     assert seq.phase is UNLOADING
-    assert seq.next(meas(-0.06)) == Step(0.05)  # T4
+    assert seq.next(meas(0.06)) == Step(0.05)  # T4
     assert seq.steps_commanded == 5
-    assert seq.next(meas(0.001)) == Finish(EndReason.COMPLETED)  # T5
+    assert seq.next(meas(-0.001)) == Finish(EndReason.COMPLETED)  # T5
     with pytest.raises(RuntimeError):  # T12
         seq.next(meas(0.0))
 
 
-def test_t6_positive_limit() -> None:
-    seq = test_run(k_limit=0.12)
+def test_t6_negative_limit() -> None:
+    seq = test_run(k_limit=-0.12)
     assert seq.next(meas(0.0)) == Step(0.05)
-    assert seq.next(meas(0.11)) == Step(0.05)
-    assert seq.next(meas(0.12)) == Step(-0.05)
+    assert seq.next(meas(-0.11)) == Step(0.05)
+    assert seq.next(meas(-0.12)) == Step(-0.05)
     assert seq.phase is UNLOADING
-    assert seq.next(meas(0.01)) == Step(-0.05)
+    assert seq.next(meas(-0.01)) == Step(-0.05)
     assert seq.next(meas(0.0)) == Finish(EndReason.COMPLETED)
 
 
 def test_t7_step_size_is_exact() -> None:
     seq = test_run(step=0.0477)
-    actions = [seq.next(meas(dk)) for dk in (0.0, -0.06, -0.13, -0.06, 0.0)]
+    actions = [seq.next(meas(dk)) for dk in (0.0, 0.06, 0.13, 0.06, 0.0)]
     steps = [a for a in actions if isinstance(a, Step)]
     assert len(steps) == seq.steps_commanded == 4
     assert all(abs(s.delta_mm) == 0.0477 for s in steps)
@@ -467,26 +468,26 @@ def test_t8_t9_pause_while_loading() -> None:
     assert seq.next(meas(None)) == Hold()
     assert seq.phase is PAUSED
     assert seq.steps_commanded == 1
-    assert seq.next(meas(-0.05)) == Step(-0.05)
+    assert seq.next(meas(0.05)) == Step(-0.05)
     assert seq.phase is LOADING
 
 
 def test_t10_pause_while_unloading() -> None:
     seq = test_run()
-    seq.next(meas(-0.12))
+    seq.next(meas(0.12))
     assert seq.next(bad()) == Hold()
     assert seq.phase is PAUSED
-    assert seq.next(meas(-0.03)) == Step(0.05)
+    assert seq.next(meas(0.03)) == Step(0.05)
     assert seq.phase is UNLOADING
 
 
 def test_t11_first_measurement_beyond_limit() -> None:
     seq = test_run()
-    assert seq.next(meas(-0.20)) == Step(0.05)
+    assert seq.next(meas(0.20)) == Step(0.05)
     assert seq.phase is UNLOADING
 
 
-@pytest.mark.parametrize("args", [(0, 0.05, -1), (-0.12, 0, -1), (-0.12, 0.05, 2)])
+@pytest.mark.parametrize("args", [(0, 0.05, -1), (0.12, 0, -1), (0.12, 0.05, 2)])
 def test_t13_invalid_arguments(args: tuple[float, float, int]) -> None:
     with pytest.raises(ValueError):
         sequences.TestRunSequence(*args)
@@ -496,13 +497,13 @@ def test_t14_closed_loop() -> None:
     seq = test_run()
     position = 0.0
     dks: list[float] = []
-    while isinstance(action := seq.next(meas(0.8 * position)), Step):
+    while isinstance(action := seq.next(meas(-0.8 * position)), Step):
         position += action.delta_mm
-        dks.append(0.8 * position)
+        dks.append(-0.8 * position)
     assert action == Finish(EndReason.COMPLETED)
-    assert dks[2] <= -0.12
-    assert dks[:3] == sorted(dks[:3], reverse=True)
-    assert dks[3:] == sorted(dks[3:])
+    assert dks[2] >= 0.12
+    assert dks[:3] == sorted(dks[:3])
+    assert dks[3:] == sorted(dks[3:], reverse=True)
     assert 1 <= len(dks) - 3 <= 4
 
 
@@ -520,18 +521,18 @@ def precondition(cycles: int = 3) -> sequences.PreconditionSequence:
     assert seq.phase is SEEK_FIRST
     assert seq.next(bad(), 9.8) == Hold()  # P8
     assert seq.limit_a_mm is None
-    assert seq.next(meas(-0.05), 9.5) == Step(0.05)  # P2
+    assert seq.next(meas(0.05), 9.5) == Step(0.05)  # P2
     assert seq.limit_a_mm == 9.5
     assert seq.phase is SEEK_SECOND
     assert seq.next(bad(), 9.8) == Hold()
-    assert seq.next(meas(0.02), 10.2) == Step(0.05)  # P3
+    assert seq.next(meas(-0.02), 10.2) == Step(0.05)  # P3
     assert (seq.limit_b_mm, seq.cycles_done) == (None, 0)
     return seq
 
 
 def test_p1_to_p6_p8_p9_three_cycles() -> None:
     seq = precondition()
-    assert seq.next(meas(0.05), 10.5) == MoveTo(9.5)  # P4
+    assert seq.next(meas(-0.05), 10.5) == MoveTo(9.5)  # P4
     assert (seq.limit_b_mm, seq.cycles_done) == (10.5, 1)
     assert seq.phase is CYCLING
     assert seq.next(bad(), 9.5) == MoveTo(10.5)  # P5, P9
@@ -546,7 +547,7 @@ def test_p1_to_p6_p8_p9_three_cycles() -> None:
 
 def test_p7_single_cycle() -> None:
     seq = precondition(cycles=1)
-    assert seq.next(meas(0.05), 10.5) == Finish(EndReason.COMPLETED)
+    assert seq.next(meas(-0.05), 10.5) == Finish(EndReason.COMPLETED)
     assert seq.cycles_done == 1
 
 

@@ -23,6 +23,7 @@ import numpy.typing as npt
 from bending_machine import storage, vision
 from bending_machine.devices import Camera, LoadCell, Stage
 from bending_machine.models import (
+    CURVATURE_SIGN,
     FORCE_PERIOD_S,
     FORCE_SIGN,
     LOADING_STAGE_SIGN,
@@ -301,7 +302,7 @@ class Machine:
                 )
                 if markers.valid:
                     try:
-                        curvature = vision.compute_curvature(
+                        curvature = CURVATURE_SIGN * vision.compute_curvature(
                             markers.xs, markers.ys, s.resolution_mm_per_px, s.fit_subset
                         )
                     except ValueError:  # for example two markers at the same x

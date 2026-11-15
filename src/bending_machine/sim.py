@@ -76,15 +76,15 @@ class SimRig:
             self._position = min(max(value, self.config.travel_min_mm), self.config.travel_max_mm)
 
     def curvature(self) -> float:
-        """k_per_mm * (position - start_position), in 1/mm."""
-        return self.config.k_per_mm * (self.position_mm() - self.config.start_position_mm)
+        """k_per_mm * (start_position - position), in 1/mm: positive above the start (loaded)."""
+        return self.config.k_per_mm * (self.config.start_position_mm - self.position_mm())
 
     def raw_force(self) -> float:
         """Raw load-cell reading for the current curvature, with noise and offset."""
         k = self.curvature()
         with self._lock:
             noise = self._rng.normal(0.0, self.config.force_noise)
-        return self.config.force_per_k * k + self._force_offset + noise
+        return -self.config.force_per_k * k + self._force_offset + noise
 
     def render_frame(self) -> npt.NDArray[np.uint8]:
         """uint8 image, image_height x image_width; no rotation."""
@@ -105,7 +105,7 @@ class SimRig:
     def marker_centres(self) -> list[tuple[float, float]]:
         """Ground-truth marker centres in image coordinates."""
         c = self.config
-        a = self.curvature() * c.resolution_mm_per_px / 2
+        a = -self.curvature() * c.resolution_mm_per_px / 2  # the image fit is negative when loaded
         return [(x, c.baseline_y + a * (x - c.centre_x) ** 2) for x in c.marker_xs]
 
     # --- fault injection for tests ---

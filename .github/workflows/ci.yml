@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint and type check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: environment.yml
+          activate-environment: bending
+      - run: ruff check
+      - run: ruff format --check
+      - run: mypy
+
+  test:
+    name: Tests (simulated hardware)
+    # Windows is the target platform (NFR-010).
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: environment.yml
+          activate-environment: bending
+      # "bench" tests need the real rig; everything else uses the simulated drivers.
+      - run: pytest -m "not bench"
+      - run: python -m bending_machine --simulate --version

@@ -1,0 +1,95 @@
+[project]
+name = "bending-machine"
+dynamic = ["version"]
+description = "Bending test application: stage, load cell and camera control with curvature measurement."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # 6.12.0 ships type stubs with a syntax error ("*args, /") that stops mypy.
+    "PyQt6<6.12",
+    "pyqtgraph",
+    "numpy",
+    "opencv-python-headless",
+    "pydantic>=2",
+    "zaber-motion",
+    "pythonnet",
+    "vmbpy>=1.2.3 ; sys_platform == 'linux' or sys_platform == 'win32'",
+]
+
+[project.scripts]
+bending-machine = "bending_machine.main:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-qt",
+    "ruff",
+    "mypy",
+    "pre-commit",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/bending_machine/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bending_machine"]
+
+# --- pytest -----------------------------------------------------------------
+[tool.pytest.ini_options]
+# tests/ also holds legacy measurement data (tests/Antonino, tests/Cristian);
+# only these four folders contain test code.
+testpaths = ["tests/unit", "tests/integration", "tests/regression", "tests/ui"]
+addopts = ["--import-mode=importlib", "--strict-markers", "-ra"]
+qt_api = "pyqt6"
+markers = [
+    "bench: needs the real rig (stage, load cell, camera); never run in CI",
+]
+
+# --- ruff -------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = [
+    # The docs are the spec; their code snippets must not be reformatted.
+    "*.md",
+    "docs",
+    "Bending_LoadCell_sources",
+    "builds",
+    "legacy",
+    "tests/Antonino",
+    "tests/Cristian",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["bending_machine"]
+
+# --- mypy -------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+files = ["src", "tests/unit", "tests/integration", "tests/regression", "tests/ui"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# pyqtgraph ships no type information.
+module = ["pyqtgraph", "pyqtgraph.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Vendor libraries without type information, or absent on the development platform.
+module = ["vmbpy", "clr", "pythonnet", "FUTEK.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# The chart subclasses the untyped pyqtgraph.PlotWidget.
+module = ["bending_machine.gui"]
+disallow_subclassing_any = false

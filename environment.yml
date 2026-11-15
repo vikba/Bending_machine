@@ -1,0 +1,9 @@
+# Create the environment once with:  conda env create -f environment.yml
+name: bending
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - -e .[dev]

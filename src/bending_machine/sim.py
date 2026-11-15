@@ -248,10 +248,10 @@ class SimCamera(Camera):
         if not self._connected:
             raise CameraError("not connected")
         # The next frame exists one frame period after the last one returned.
-        wait = self._last + 1 / self._rig.config.frame_rate - time.monotonic()
+        wait = self._last + 1 / self._rig.config.frame_rate - time.perf_counter()
         if wait > timeout_s:
             time.sleep(timeout_s)
             raise CameraTimeout("no frame within the timeout")
         time.sleep(max(wait, 0.0))
-        self._last = time.monotonic()
+        self._last = time.perf_counter()
         return Frame(self._rig.render_frame(), self._last)

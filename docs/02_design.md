@@ -51,8 +51,9 @@ the overload check keep running while a stage move blocks (NFR-002, NFR-004).
 
 ## 3. Conventions and constants
 
-- Units: mm, px, 1/mm, grams. Timestamps are `time.monotonic()` seconds; wall-clock times
-  are naive local `datetime`.
+- Units: mm, px, 1/mm, grams. Timestamps are `time.perf_counter()` seconds. It is
+  monotonic too; `time.monotonic()` ticks only every 15.6 ms on Windows with Python 3.12,
+  coarser than the 20 ms force period. Wall-clock times are naive local `datetime`.
 - Image coordinates: origin top-left, x right, y down, on the frame as the camera delivers
   it. There is no rotation; the camera is mounted with the sample horizontal.
 - Directions: **up** moves the sample toward the stage's home (Zaber position 0, negative
@@ -306,7 +307,7 @@ Checked in order; the first failure posts a message and nothing moves:
 ### 9.5 Test run
 
 ```
-start = position; record = new TestRecord; chart cleared; after = monotonic()
+start = position; record = new TestRecord; chart cleared; after = perf_counter()
 loop:
     m = wait for frame_time > after (timeout 2 s → camera fault)
     missing, non-finite or stale force: load-cell fault, leave loop
@@ -315,7 +316,7 @@ loop:
     Step(d): move_relative(d); read position; wait settle_s
     Hold:    marker warning on; wait 0.2 s
     Finish:  leave the loop
-    after = monotonic()
+    after = perf_counter()
 reason = COMPLETED, or STOPPED / OVERLOAD / FAULT if cancelled
 if reason is COMPLETED or STOPPED: wait 0.4 s; move_absolute(start)
 ```

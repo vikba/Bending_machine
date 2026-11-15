@@ -20,12 +20,12 @@ FAST = {
     "test_step_mm": 0.05,
     "jog_step_mm": 0.05,
     "settle_s": 0.05,
-    "k_limit": 0.012,
+    "k_limit": 0.010,  # between steps (0.004 1/mm each), so noise cannot add one
     "pc_amplitude": 0.006,
     "pc_cycles": 3,
     "pc_dwell_s": 0.05,
 }
-LONG = {"k_limit": 0.024}  # 6 steps to the limit: time to interfere mid-test
+LONG = {"k_limit": 0.022}  # 6 steps to the limit: time to interfere mid-test
 
 
 class FakeLoadCell(LoadCell):
@@ -68,7 +68,7 @@ class Bench:
         self.connect()
 
     def wait(self, done: Callable[[Status], object], timeout: float = 10.0) -> Status:
-        end = time.monotonic() + timeout
+        end = time.perf_counter() + timeout
         while True:
             self.seen += self.machine.messages()
             status = self.machine.status()
@@ -79,7 +79,7 @@ class Bench:
                 self.phases.append(status.phase)
             if done(status):
                 return status
-            assert time.monotonic() < end, f"timed out in {status.mode}; messages: {self.seen}"
+            assert time.perf_counter() < end, f"timed out in {status.mode}; messages: {self.seen}"
             time.sleep(0.005)
 
     def said(self, kind: str) -> list[str]:
@@ -133,14 +133,15 @@ def test_full_run_then_failed_save_then_save(make: Callable[..., Bench], tmp_pat
     record = b.machine._record  # the pending result, as it will be saved
     assert record is not None and len(record.samples) == status.samples
     dks = [s.dk for s in record.samples]
-    assert abs(dks[0]) < 0.001 and max(dks) >= 0.012 and dks[-1] <= 0
+    assert abs(dks[0]) < 0.001 and max(dks) >= 0.010 and dks[-1] <= 0
     assert record.samples[dks.index(max(dks))].force > 0  # same sign as dK when loaded
     steps = [b.stage_mm - a.stage_mm for a, b in pairwise(record.samples)]
     assert all(abs(step) == pytest.approx(0.05, abs=1e-9) for step in steps)
     assert min(s.stage_mm for s in record.samples) == pytest.approx(9.85, abs=1e-9)  # up = loading
     # Fresh frames: every sample is from after the settle time of the step before it.
     assert all(b.t - a.t >= 0.05 for a, b in pairwise(record.samples))
-    assert all(s.force > 0 for s in record.samples[1:-1])  # the sample pushes the probe
+    # The sample pushes the probe; at dK 0.004 the force is only twice its noise, so skip those.
+    assert all(s.force > 0 for s in record.samples if s.dk > 0.006)
 
     b.machine.start_test()  # nothing new can start while a result is pending
     b.machine.save_result(tmp_path / "missing" / "t.csv", False)
@@ -162,10 +163,10 @@ def test_full_run_then_failed_save_then_save(make: Callable[..., Bench], tmp_pat
 def test_stop_during_a_test(make: Callable[..., Bench]) -> None:
     b = make(**LONG)
     b.start_test(samples=3)
-    stopped = time.monotonic()
+    stopped = time.perf_counter()
     b.machine.stop()
     status = b.wait(lambda s: s.phase == "stopped")
-    assert time.monotonic() - stopped < 1.0  # one step at most, 0.4 s, and the way back
+    assert time.perf_counter() - stopped < 1.0  # one step at most, 0.4 s, and the way back
     assert status.position_mm == pytest.approx(10.0, abs=1e-9)
     assert b.wait(mode_is(Mode.RESULT_PENDING)).samples >= 3
 
@@ -175,10 +176,10 @@ def test_stop_during_a_long_move(make: Callable[..., Bench]) -> None:
     b.machine.move_absolute(20.0)  # 10 s at the simulated 1 mm/s
     b.wait(mode_is(Mode.MOVING))
     time.sleep(0.2)
-    stopped = time.monotonic()
+    stopped = time.perf_counter()
     b.machine.stop()
     status = b.wait(mode_is(Mode.IDLE))
-    assert time.monotonic() - stopped < 0.2
+    assert time.perf_counter() - stopped < 0.2
     assert status.position_mm is not None and 10.1 < status.position_mm < 10.6
 
 
@@ -198,10 +199,10 @@ def test_marker_hidden_mid_test(make: Callable[..., Bench]) -> None:
 def test_overload_mid_test(make: Callable[..., Bench]) -> None:
     b = make(**LONG)
     b.start_test(samples=3)
-    tripped = time.monotonic()
+    tripped = time.perf_counter()
     b.rig.set_force_offset(30.0)
     b.wait(lambda s: b.said("overload"))
-    assert time.monotonic() - tripped < 0.25
+    assert time.perf_counter() - tripped < 0.25
     status = b.wait(mode_is(Mode.RESULT_PENDING))
     assert status.phase == "overload" and status.samples >= 3
     time.sleep(0.6)  # longer than the pause before a return move

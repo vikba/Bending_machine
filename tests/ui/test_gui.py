@@ -190,7 +190,7 @@ def test_slow_discovery_keeps_the_window_alive(
     monkeypatch.setattr(devices, "list_cameras", slow)
     window.refresh_button.click()
     ticks: list[float] = []
-    window._timer.timeout.connect(lambda: ticks.append(time.monotonic()))
+    window._timer.timeout.connect(lambda: ticks.append(time.perf_counter()))
     qtbot.wait(300)
     assert len(ticks) >= 3  # the timer kept running during the discovery
     assert not window.refresh_button.isEnabled() and not window.connect_button.isEnabled()

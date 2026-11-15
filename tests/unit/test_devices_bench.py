@@ -40,10 +40,10 @@ def test_stage_relative_moves(stage: ZaberStage) -> None:
 def test_stage_stop_from_a_second_thread(stage: ZaberStage) -> None:
     start = stage.position_mm()
     threading.Timer(0.5, stage.stop).start()
-    began = time.monotonic()
+    began = time.perf_counter()
     with pytest.raises(MotionInterrupted):
         stage.move_relative(20.0)
-    assert time.monotonic() - began < 1.0
+    assert time.perf_counter() - began < 1.0
     assert stage.position_mm() < start + 20.0
     stage.move_absolute(start)
 
@@ -52,9 +52,9 @@ def test_loadcell_keeps_the_20_ms_period() -> None:
     cell = FutekLoadCell()
     cell.connect()
     try:
-        began = time.monotonic()
+        began = time.perf_counter()
         readings = [cell.read_raw() for _ in range(200)]
-        per_read = (time.monotonic() - began) / len(readings)
+        per_read = (time.perf_counter() - began) / len(readings)
     finally:
         cell.disconnect()
     assert per_read < FORCE_PERIOD_S
@@ -65,13 +65,13 @@ def test_camera_rate_and_newest_frame() -> None:
     camera = VimbaCamera()
     camera.connect(os.environ["BENCH_CAMERA_ID"])
     try:
-        began = time.monotonic()
+        began = time.perf_counter()
         frames = [camera.grab_latest() for _ in range(100)]
-        rate = len(frames) / (time.monotonic() - began)
+        rate = len(frames) / (time.perf_counter() - began)
         assert rate >= 15
         assert len({frame.image.shape for frame in frames}) == 1 and frames[0].image.ndim == 2
         assert all(b.timestamp > a.timestamp for a, b in pairwise(frames))
         time.sleep(1.0)  # frames keep arriving; the next grab must return the newest one
-        assert time.monotonic() - camera.grab_latest().timestamp < 0.2
+        assert time.perf_counter() - camera.grab_latest().timestamp < 0.2
     finally:
         camera.disconnect()

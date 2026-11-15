@@ -77,15 +77,13 @@ def test_empty_record_refused(tmp_path: Path) -> None:
 
 
 def test_unwritable_folder_leaves_nothing(tmp_path: Path) -> None:
-    tmp_path.chmod(0o500)
-    try:
-        with pytest.raises(SaveError):
-            storage.write_results(record(), tmp_path / "a.csv", overwrite=False)
-        with pytest.raises(SaveError):
-            storage.save_settings(tmp_path, Settings())
-        assert list(tmp_path.iterdir()) == []
-    finally:
-        tmp_path.chmod(0o700)
+    folder = tmp_path / "file"  # a file where the folder should be fails on every OS;
+    folder.write_text("")  # chmod does not make a folder read-only on Windows
+    with pytest.raises(SaveError):
+        storage.write_results(record(), folder / "a.csv", overwrite=False)
+    with pytest.raises(SaveError):
+        storage.save_settings(folder, Settings())
+    assert list(tmp_path.iterdir()) == [folder]
 
 
 def test_settings_round_trip(tmp_path: Path) -> None:

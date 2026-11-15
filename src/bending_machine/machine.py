@@ -272,7 +272,7 @@ class Machine:
         """The newest raw force reading, or None if it is missing or stale."""
         with self._lock:
             reading = self._forces[-1] if self._forces else None
-        if reading is None or time.monotonic() - reading.timestamp > FRESH_S:
+        if reading is None or time.perf_counter() - reading.timestamp > FRESH_S:
             return None
         return reading.raw
 
@@ -333,9 +333,9 @@ class Machine:
 
     def _watch_force(self, stop: threading.Event) -> None:
         errors = 0
-        due = time.monotonic()
-        while not stop.wait(max(due - time.monotonic(), 0)):
-            due = max(due + FORCE_PERIOD_S, time.monotonic())  # no catching up after a slow read
+        due = time.perf_counter()
+        while not stop.wait(max(due - time.perf_counter(), 0)):
+            due = max(due + FORCE_PERIOD_S, time.perf_counter())  # no catching up after a slow read
             try:
                 raw = self._loadcell.read_raw()
                 if isnan(raw):
@@ -347,7 +347,7 @@ class Machine:
                 continue
             errors = 0
             with self._lock:
-                self._forces.append(ForceReading(raw, time.monotonic()))
+                self._forces.append(ForceReading(raw, time.perf_counter()))
                 trip = vision.is_overload(raw, OVERLOAD_LIMIT_G) and not self._latched
                 self._latched = self._latched or trip
             if trip:
@@ -469,7 +469,7 @@ class Machine:
 
     def _do_tare_curvature(self) -> None:
         m = self.status().measurement
-        if m is None or m.curvature is None or time.monotonic() - m.frame_time > FRESH_S:
+        if m is None or m.curvature is None or time.perf_counter() - m.frame_time > FRESH_S:
             return self._post(
                 "rejected", "Curvature cannot be tared: not all markers are detected."
             )
@@ -515,11 +515,11 @@ class Machine:
 
         def fresh() -> bool:
             m = self._status.measurement
-            return m is not None and time.monotonic() - m.frame_time <= FRESH_S
+            return m is not None and time.perf_counter() - m.frame_time <= FRESH_S
 
         with self._lock:  # a busy GUI thread can delay a frame; allow it half a second
             self._lock.wait_for(fresh, timeout=0.5)
-        s, status, now = self.settings, self.status(), time.monotonic()
+        s, status, now = self.settings, self.status(), time.perf_counter()
         m, tare = status.measurement, status.tare
         if not s.tracking:
             self._post(
@@ -624,7 +624,7 @@ class Machine:
         start = self._begin(Mode.TESTING)
         sequence = RunSequence(s.k_limit, s.test_step_mm, LOADING_STAGE_SIGN)
         record = TestRecord([], datetime.now(), s, self.status().tare, start)
-        began = after = time.monotonic()
+        began = after = time.perf_counter()
         while (m := self._next_measurement(after)) is not None:
             action = sequence.next(m)
             if m.usable and m.markers is not None and m.dk is not None:
@@ -646,7 +646,7 @@ class Machine:
                     break
             elif self._cancel.wait(0.2):  # Hold: try again with a later frame
                 break
-            after = time.monotonic()  # only a frame from after the wait counts
+            after = time.perf_counter()  # only a frame from after the wait counts
         record.end_reason = self._end("Test", start)
         self._record = record if record.samples else None
 
@@ -662,7 +662,7 @@ class Machine:
         )
         limits = 0  # how many of the two limit positions are known
         self._cancel.wait(0.4)
-        after = time.monotonic()
+        after = time.perf_counter()
         while (m := self._next_measurement(after)) is not None:
             action = sequence.next(m, self.status().position_mm or start)
             self._set(
@@ -684,5 +684,5 @@ class Machine:
                 done = not self._cancel.wait(0.2)
             if not done:
                 break
-            after = time.monotonic()
+            after = time.perf_counter()
         self._end("Preconditioning", start)

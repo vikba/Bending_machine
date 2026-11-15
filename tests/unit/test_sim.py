@@ -60,9 +60,9 @@ def test_hidden_marker_is_not_drawn() -> None:
 
 def test_move_blocks_until_the_target_is_reached() -> None:
     stage = connected_stage(SimRig())  # 1 mm/s
-    start = time.monotonic()
+    start = time.perf_counter()
     stage.move_relative(-0.1)
-    assert time.monotonic() - start >= 0.09
+    assert time.perf_counter() - start >= 0.09
     assert stage.position_mm() == pytest.approx(9.9)
     stage.move_absolute(10.0)
     assert stage.position_mm() == 10.0
@@ -71,10 +71,10 @@ def test_move_blocks_until_the_target_is_reached() -> None:
 def test_stop_from_another_thread_interrupts_a_move() -> None:
     stage = connected_stage(SimRig())
     threading.Timer(0.1, stage.stop).start()
-    start = time.monotonic()
+    start = time.perf_counter()
     with pytest.raises(MotionInterrupted):
         stage.move_absolute(0.0)  # 10 s if not stopped
-    assert time.monotonic() - start < 0.3
+    assert time.perf_counter() - start < 0.3
     assert 9.8 < stage.position_mm() < 10.0
     stage.move_relative(0.02)  # an earlier stop does not affect the next move
 

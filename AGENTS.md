@@ -73,4 +73,5 @@ do not run them and do not remove the marker.
 - Tests: one file per source module in `tests/unit/`; workflows against the simulator in
   `tests/integration/` (the list in `docs/02_design.md` §12 must be covered). Test what an
   operator or a saved file would notice, and keep tests short.
-- Units: mm, px, 1/mm, grams. Timestamps are `time.monotonic()` seconds.
+- Units: mm, px, 1/mm, grams. Timestamps are `time.perf_counter()` seconds
+  (`time.monotonic()` ticks only every 15.6 ms on Windows with Python 3.12).

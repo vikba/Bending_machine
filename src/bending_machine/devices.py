@@ -135,7 +135,7 @@ class Camera(ABC):
     def grab_latest(self, timeout_s: float = 1.0) -> Frame:
         """Newest complete frame as uint8 (H, W) as delivered by the camera.
 
-        Frame.timestamp = time.monotonic() at reception. Never returns the same
+        Frame.timestamp = time.perf_counter() at reception. Never returns the same
         frame twice: blocks until a frame newer than the last returned one exists.
         Raises CameraTimeout after timeout_s; CameraError on other failures.
         """
@@ -330,7 +330,7 @@ class VimbaCamera(Camera):
         if frame.get_status() == self._complete:
             image = to_uint8(frame.as_numpy_ndarray(), self._shift)
             with self._ready:
-                self._latest = Frame(image, time.monotonic())
+                self._latest = Frame(image, time.perf_counter())
                 self._ready.notify_all()
         camera.queue_frame(frame)
 
